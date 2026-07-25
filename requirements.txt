@@ -10,3 +10,4 @@ numpy
 python-dotenv
 #pysqlite3-binary
 pypdf
+langchain-huggingface
