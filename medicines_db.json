@@ -316,7 +316,7 @@
     { "id": "urol-17", "name": "Doxazosin 2mg", "category": "Alpha-1 Blocker", "price": 17, "description": "Manages high blood pressure and urinary obstruction." },
     { "id": "urol-18", "name": "Bethanechol 25mg", "category": "Cholinergic Agonist", "price": 20, "description": "Stimulates bladder muscle contraction to treat urinary retention." },
     { "id": "urol-19", "name": "Trospium Chloride 20mg", "category": "Anticholinergic", "price": 32, "description": "Manages urinary frequency and urge incontinence." },
-    {="id": "urol-20", "name": "Darifenacin 7.5mg", "category": "Anticholinergic", "price": 48, "description": "Bladder-selective receptor blocker for overactive bladder." },
+    { "id": "urol-20", "name": "Darifenacin 7.5mg", "category": "Anticholinergic", "price": 48, "description": "Bladder-selective receptor blocker for overactive bladder." },
     { "id": "urol-21", "name": "Avanafil 100mg", "category": "PDE5 Inhibitor", "price": 50, "description": "Rapid-onset treatment for erectile dysfunction." },
     { "id": "urol-22", "name": "Pentosan Polysulfate Sodium 100mg", "category": "Bladder Protectant", "price": 110, "description": "Relieves bladder wall pain associated with interstitial cystitis." },
     { "id": "urol-23", "name": "Methenamine Hippurate 1g", "category": "Urinary Antiseptic", "price": 22, "description": "Suppresses recurrent urinary tract infections." },
