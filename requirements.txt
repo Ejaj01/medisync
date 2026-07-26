@@ -1,3 +1,5 @@
+fastapi
+uvicorn
 streamlit
 google-generativeai
 langchain-google-genai
@@ -8,7 +10,6 @@ pydantic
 opencv-python-headless
 numpy
 python-dotenv
-#pysqlite3-binary
 pypdf
 langchain-huggingface
 sentence-transformers
