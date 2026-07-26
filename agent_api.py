@@ -90,8 +90,7 @@ async def simulate_stripe_payment(doctor_id: str, amount: float):
 async def generate_prescription_pdf(data: dict):
     """
     Generates a professional PDF prescription matching the template layout,
-    complete with a faint transparent watermark logo in the background,
-    correct doctor profile, patient metadata, and structured clinical notes.
+    with adjusted text flow to prevent overlapping with the footer.
     """
     try:
         doctor_id = data.get("doctorId", "cardio")
@@ -120,7 +119,6 @@ async def generate_prescription_pdf(data: dict):
         # 2. Transparent Background Watermark Logo
         p.saveState()
         p.setFont("Helvetica-Bold", 55)
-        # Using a very light grey/blue with low opacity effect for the watermark
         p.setFillColorRGB(0.88, 0.92, 0.98) 
         p.translate(width / 2 + 30, height / 2 - 50)
         p.rotate(30)
@@ -160,24 +158,24 @@ async def generate_prescription_pdf(data: dict):
         # 5. Rx Symbol Area
         p.setFont("Helvetica-Bold", 28)
         p.setFillColorRGB(0.22, 0.51, 0.96)
-        p.drawString(155, height - 180, "R")
+        p.drawString(155, height - 170, "R")
         p.setFont("Helvetica-Bold", 18)
-        p.drawString(174, height - 177, "x")
+        p.drawString(174, height - 167, "x")
 
         # 6. Clinical Findings / Diagnosis & Medication Summary Section
         p.setFont("Helvetica-Bold", 11)
         p.setFillColorRGB(0.1, 0.1, 0.1)
-        p.drawString(155, height - 215, "Diagnosis & Clinical Summary:")
+        p.drawString(155, height - 200, "Diagnosis & Clinical Summary:")
 
-        p.setFont("Helvetica", 10)
+        p.setFont("Helvetica", 9) # Optimized font size for multi-line clinical reports
         p.setFillColorRGB(0.2, 0.2, 0.2)
-        text_object = p.beginText(155, height - 235)
-        text_object.setLeading(15)
+        text_object = p.beginText(155, height - 218)
+        text_object.setLeading(13) # Tighter line spacing to prevent footer overflow
 
         for line in diagnosis.split('\n'):
-            clean_line = line.replace('**', '')
-            if len(clean_line) > 72:
-                chunks = [clean_line[i:i+72] for i in range(0, len(clean_line), 72)]
+            clean_line = line.replace('**', '').replace('###', '')
+            if len(clean_line) > 75:
+                chunks = [clean_line[i:i+75] for i in range(0, len(clean_line), 75)]
                 for chunk in chunks:
                     text_object.textLine(chunk)
             else:
@@ -185,7 +183,7 @@ async def generate_prescription_pdf(data: dict):
         
         p.drawText(text_object)
 
-        # 7. Footer Signature & Clinic Contact Details
+        # 7. Fixed Footer Signature & Clinic Contact Details (Safely positioned at the bottom)
         p.setFont("Helvetica", 9)
         p.setFillColorRGB(0.4, 0.4, 0.4)
         p.drawString(width - 180, 95, "__________________________")
@@ -193,12 +191,12 @@ async def generate_prescription_pdf(data: dict):
         p.drawString(width - 155, 80, "Doctor's Signature")
 
         p.setStrokeColorRGB(0.8, 0.8, 0.8)
-        p.line(155, 60, width - 40, 60)
+        p.line(155, 65, width - 40, 65)
 
         p.setFont("Helvetica", 8)
-        p.drawString(155, 45, "📍 Medisync Telehealth Tower, Dhaka")
-        p.drawString(330, 45, "📞 +880-9612-MEDISYNC")
-        p.drawString(480, 45, "✉ support@medisync.app")
+        p.drawString(155, 50, "📍 Medisync Telehealth Tower, Dhaka")
+        p.drawString(330, 50, "📞 +880-9612-MEDISYNC")
+        p.drawString(480, 50, "✉ support@medisync.app")
 
         p.showPage()
         p.save()
