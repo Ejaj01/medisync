@@ -89,9 +89,9 @@ async def simulate_stripe_payment(doctor_id: str, amount: float):
 @app.post("/api/prescription/pdf")
 async def generate_prescription_pdf(data: dict):
     """
-    Generates a professional PDF prescription matching the clean template layout,
-    complete with the Medisync sidebar branding, correct doctor profile from the 12 personas,
-    patient metadata, and structured clinical notes/medicines.
+    Generates a professional PDF prescription matching the template layout,
+    complete with a faint transparent watermark logo in the background,
+    correct doctor profile, patient metadata, and structured clinical notes.
     """
     try:
         doctor_id = data.get("doctorId", "cardio")
@@ -117,7 +117,17 @@ async def generate_prescription_pdf(data: dict):
         p.drawString(0, 0, "MEDISYNC CLINICAL")
         p.restoreState()
 
-        # 2. Header Area (Doctor Information)
+        # 2. Transparent Background Watermark Logo
+        p.saveState()
+        p.setFont("Helvetica-Bold", 55)
+        # Using a very light grey/blue with low opacity effect for the watermark
+        p.setFillColorRGB(0.88, 0.92, 0.98) 
+        p.translate(width / 2 + 30, height / 2 - 50)
+        p.rotate(30)
+        p.drawCentredString(0, 0, "MEDISYNC")
+        p.restoreState()
+
+        # 3. Header Area (Doctor Information)
         p.setFillColorRGB(0.1, 0.1, 0.1)
         p.setFont("Helvetica-Bold", 16)
         p.drawString(155, height - 50, f"{selected_doc['name']}")
@@ -137,7 +147,7 @@ async def generate_prescription_pdf(data: dict):
         p.setLineWidth(1)
         p.line(155, height - 85, width - 40, height - 85)
 
-        # 3. Patient Meta Fields (Name, Age, Gender, Weight)
+        # 4. Patient Meta Fields (Name, Age, Gender, Weight)
         p.setFont("Helvetica-Bold", 9)
         p.setFillColorRGB(0.2, 0.2, 0.2)
         p.drawString(155, height - 110, "Patient Name:")
@@ -147,14 +157,14 @@ async def generate_prescription_pdf(data: dict):
         p.drawString(255, height - 132, "Gender: ________")
         p.drawString(380, height - 132, "Weight: ________")
 
-        # 4. Rx Symbol & Watermark Area
+        # 5. Rx Symbol Area
         p.setFont("Helvetica-Bold", 28)
         p.setFillColorRGB(0.22, 0.51, 0.96)
         p.drawString(155, height - 180, "R")
         p.setFont("Helvetica-Bold", 18)
         p.drawString(174, height - 177, "x")
 
-        # 5. Clinical Findings / Diagnosis & Medication Summary Section
+        # 6. Clinical Findings / Diagnosis & Medication Summary Section
         p.setFont("Helvetica-Bold", 11)
         p.setFillColorRGB(0.1, 0.1, 0.1)
         p.drawString(155, height - 215, "Diagnosis & Clinical Summary:")
@@ -164,9 +174,8 @@ async def generate_prescription_pdf(data: dict):
         text_object = p.beginText(155, height - 235)
         text_object.setLeading(15)
 
-        # Word-wrapped cleaning of diagnosis text
         for line in diagnosis.split('\n'):
-            clean_line = line.replace('**', '') # Strip markdown asterisks for clean PDF output
+            clean_line = line.replace('**', '')
             if len(clean_line) > 72:
                 chunks = [clean_line[i:i+72] for i in range(0, len(clean_line), 72)]
                 for chunk in chunks:
@@ -176,7 +185,7 @@ async def generate_prescription_pdf(data: dict):
         
         p.drawText(text_object)
 
-        # 6. Footer Signature & Clinic Contact Details
+        # 7. Footer Signature & Clinic Contact Details
         p.setFont("Helvetica", 9)
         p.setFillColorRGB(0.4, 0.4, 0.4)
         p.drawString(width - 180, 95, "__________________________")
