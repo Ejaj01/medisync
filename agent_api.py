@@ -1,17 +1,32 @@
 import os
 import json
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, Optional, List
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from rag_module import MedicalRAGEngine
 from langchain_google_genai import ChatGoogleGenerativeAI
 from pydantic import BaseModel
-from typing import Optional, List
 
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Initialize FastAPI app at the top
+# Initialize FastAPI app ONCE at the top with your title
 app = FastAPI(title="AI Copilot Communications Gateway")
+
+# Configure CORS right after initializing the app
+origins = [
+    "https://medisync-design-production.up.railway.app",
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 rag_engine = MedicalRAGEngine(api_key=api_key)
 
 # Define the 12 Specialized Doctor Personas
@@ -68,7 +83,6 @@ async def simulate_stripe_payment(doctor_id: str, amount: float):
         "message": "Payment verified successfully via Stripe simulator."
     }
 
-
 @app.post("/sms/incoming")
 async def handle_incoming_query(Body: str = Form(...), From: str = Form(...)):
     """
@@ -98,8 +112,6 @@ async def handle_incoming_query(Body: str = Form(...), From: str = Form(...)):
         "reply_message": response.content
     }
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="127.0.0.1", port=8000)
