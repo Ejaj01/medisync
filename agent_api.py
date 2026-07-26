@@ -1,6 +1,6 @@
 import os
 import json
-from fastapi import FastAPI, Form
+from fastapi import FastAPI, Form, UploadFile, File
 from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -11,10 +11,10 @@ from pydantic import BaseModel
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Initialize FastAPI app ONCE at the top with your title
+# 1. Initialize FastAPI app ONCE at the top
 app = FastAPI(title="AI Copilot Communications Gateway")
 
-# Configure CORS right after initializing the app
+# 2. Configure CORS right after initializing the app
 origins = [
     "https://medisync-design-production.up.railway.app",
     "http://localhost:5173",
@@ -28,6 +28,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 3. Initialize RAG engine so it's ready for endpoints
 rag_engine = MedicalRAGEngine(api_key=api_key)
 
 # Define the 12 Specialized Doctor Personas
@@ -66,7 +67,6 @@ async def get_all_medicines(specialty: Optional[str] = None):
     if specialty and specialty in data:
         return {"medicines": data[specialty], "total_count": len(data[specialty])}
     
-    # Flatten all categories into a single comprehensive list of 300+ items
     complete_inventory = []
     for category_list in data.values():
         complete_inventory.extend(category_list)
@@ -75,7 +75,6 @@ async def get_all_medicines(specialty: Optional[str] = None):
 
 @app.post("/api/checkout")
 async def simulate_stripe_payment(doctor_id: str, amount: float):
-    # Simulated Stripe Checkout & Appointment Token Generation
     return {
         "status": "success",
         "transaction_id": f"txn_medisync_{os.urandom(4).hex()}",
@@ -84,18 +83,61 @@ async def simulate_stripe_payment(doctor_id: str, amount: float):
         "message": "Payment verified successfully via Stripe simulator."
     }
 
+@app.post("/api/chat")
+async def handle_chat_message(
+    message: str = Form(...),
+    file: Optional[UploadFile] = File(None)
+):
+    """
+    Handles live telehealth chat messages, analyzes optional image uploads using Vision/RAG,
+    and returns a clinical AI response.
+    """
+    try:
+        response_text = ""
+        
+        if file:
+            image_bytes = await file.read()
+            from vision_module import MedicalVisionEngine
+            vision_engine = MedicalVisionEngine()
+            vision_res = vision_engine.analyze_scan(image_bytes, api_key=api_key)
+            
+            if vision_res.get("success") and vision_res.get("findings"):
+                finding = vision_res["findings"][0]
+                report = rag_engine.generate_doctor_report(
+                    finding=finding["class_name"],
+                    size_mm=finding.get("estimated_size_mm", 5.0),
+                    location=finding.get("location_tags", "General"),
+                    api_key=api_key
+                )
+                response_text = f"I have analyzed your uploaded scan.\n\n{report}"
+            else:
+                response_text = "I received your image scan, but no clear clinical anomalies met the confidence threshold. Let's discuss your symptoms."
+        else:
+            context = rag_engine._retrieve_medical_context(message)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key, temperature=0.3)
+            prompt = (
+                f"You are an assigned Medisync specialist doctor persona.\n"
+                f"User Query: {message}\n\n"
+                f"Medical Guidelines Context:\n{context}\n\n"
+                f"Provide a professional, clinical, and helpful response."
+            )
+            res = llm.invoke(prompt)
+            response_text = res.content
+
+        return {
+            "status": "success",
+            "reply": response_text
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "reply": f"Clinical server encountered an error: {str(e)}"
+        }
+
 @app.post("/sms/incoming")
 async def handle_incoming_query(Body: str = Form(...), From: str = Form(...)):
-    """
-    Receives text queries regarding reports, queries the internal Vector DB,
-    and returns a contextual message.
-    """
     print(f"Received message from {From}: {Body}")
-
-    # 1. Query Vector store for relevant medical logic
     context = rag_engine._retrieve_medical_context(Body)
-
-    # 2. Run an agent conversation layer using Gemini
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key, temperature=0.3)
 
     agent_prompt = (
@@ -107,7 +149,6 @@ async def handle_incoming_query(Body: str = Form(...), From: str = Form(...)):
 
     response = llm.invoke(agent_prompt)
 
-    # Return response payload structured for webhooks
     return {
         "recipient": From,
         "reply_message": response.content
