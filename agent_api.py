@@ -1,6 +1,7 @@
 import os
 import json
 from fastapi import FastAPI, Form
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from rag_module import MedicalRAGEngine
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -12,6 +13,20 @@ api_key = os.getenv("GEMINI_API_KEY")
 
 # Initialize FastAPI app at the top
 app = FastAPI(title="AI Copilot Communications Gateway")
+
+# Enable CORS so the frontend (hosted on a different Railway domain) can
+# communicate with this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://medisync-design-production.up.railway.app",
+    ],
+    allow_origin_regex=".*",
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
 rag_engine = MedicalRAGEngine(api_key=api_key)
 
 # Define the 12 Specialized Doctor Personas
