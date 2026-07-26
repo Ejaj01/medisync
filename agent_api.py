@@ -1,6 +1,7 @@
 import os
 import json
-from fastapi import FastAPI, Form, Optional, List
+from fastapi import FastAPI, Form
+from typing import Optional, List
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from rag_module import MedicalRAGEngine
