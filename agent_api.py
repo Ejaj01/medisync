@@ -89,12 +89,13 @@ async def handle_chat_message(
     file: Optional[UploadFile] = File(None)
 ):
     """
-    Handles live telehealth chat messages, analyzes optional image uploads using Vision/RAG,
-    and returns a clinical AI response.
+    Handles live telehealth chat messages with a warm, human-like medical specialist persona,
+    evaluates knowledge base context, and suggests seeing a real physician if details are missing.
     """
     try:
         response_text = ""
         
+        # If an image/scan is attached, process it with the vision module or RAG
         if file:
             image_bytes = await file.read()
             from vision_module import MedicalVisionEngine
@@ -109,17 +110,24 @@ async def handle_chat_message(
                     location=finding.get("location_tags", "General"),
                     api_key=api_key
                 )
-                response_text = f"I have analyzed your uploaded scan.\n\n{report}"
+                response_text = f"I've taken a close look at your attached scan. Here is what stands out from our clinical evaluation:\n\n{report}"
             else:
-                response_text = "I received your image scan, but no clear clinical anomalies met the confidence threshold. Let's discuss your symptoms."
+                response_text = "I received your attached scan, but I don't see any definitive anomalies standing out. Let's talk about how you're feeling physically right now."
         else:
+            # Standard text-based RAG query with human conversational persona
             context = rag_engine._retrieve_medical_context(message)
-            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key, temperature=0.3)
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", google_api_key=api_key, temperature=0.4)
+            
             prompt = (
-                f"You are an assigned Medisync specialist doctor persona.\n"
-                f"User Query: {message}\n\n"
-                f"Medical Guidelines Context:\n{context}\n\n"
-                f"Provide a professional, clinical, and helpful response."
+                f"You are a warm, empathetic, and professional human medical specialist doctor talking directly with your patient in a live telehealth session.\n"
+                f"Avoid sounding like a cold robotic rule-engine or listing massive safety disclaimers unless it is a life-threatening emergency.\n"
+                f"Patient Message: {message}\n\n"
+                f"Retrieved Medical Guidelines / Knowledge Base Context:\n{context}\n\n"
+                f"Instructions:\n"
+                f"1. Speak naturally like a caring human doctor.\n"
+                f"2. Check if the retrieved knowledge base context contains enough solid information to answer the user's specific query.\n"
+                f"3. If the vector database / guidelines context does NOT have sufficient information to safely or accurately answer the patient's specific question, or if it's a complex/critical medical scenario, explicitly tell the user: 'I don't have enough specific details in our medical reference database for this, so you should schedule a consultation with a real human physician for a thorough evaluation.'\n"
+                f"4. Keep your response conversational, concise, and supportive."
             )
             res = llm.invoke(prompt)
             response_text = res.content
@@ -131,7 +139,7 @@ async def handle_chat_message(
     except Exception as e:
         return {
             "status": "error",
-            "reply": f"Clinical server encountered an error: {str(e)}"
+            "reply": f"I apologize, but I ran into a minor snag on our server end: {str(e)}"
         }
 
 @app.post("/sms/incoming")
