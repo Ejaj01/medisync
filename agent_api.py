@@ -89,50 +89,107 @@ async def simulate_stripe_payment(doctor_id: str, amount: float):
 @app.post("/api/prescription/pdf")
 async def generate_prescription_pdf(data: dict):
     """
-    Generates and returns an official downloadable PDF prescription document.
+    Generates a professional PDF prescription matching the clean template layout,
+    complete with the Medisync sidebar branding, correct doctor profile from the 12 personas,
+    patient metadata, and structured clinical notes/medicines.
     """
     try:
-        doctor_id = data.get("doctorId", "specialist")
+        doctor_id = data.get("doctorId", "cardio")
         diagnosis = data.get("diagnosis", "Clinical evaluation completed.")
+
+        # Find the matching doctor persona dictionary
+        selected_doc = next((doc for doc in DOCTOR_PERSONAS if doc["id"] == doctor_id), DOCTOR_PERSONAS[0])
 
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
-        width, height = letter
+        width, height = letter # 612 x 792 points
 
-        # Document Header
-        p.setFont("Helvetica-Bold", 20)
-        p.drawString(50, height - 50, "Medisync Clinical Prescription")
+        # 1. Left Side Blue Branding Panel (Hospital Name Sidebar)
+        p.setFillColorRGB(0.22, 0.51, 0.96) # Professional medical blue (#3b82f6)
+        p.rect(0, 0, 130, height, fill=1, stroke=0)
+
+        # Vertical Hospital Name Text
+        p.saveState()
+        p.setFillColorRGB(1, 1, 1)
+        p.setFont("Helvetica-Bold", 22)
+        p.translate(55, height / 2 - 40)
+        p.rotate(90)
+        p.drawString(0, 0, "MEDISYNC CLINICAL")
+        p.restoreState()
+
+        # 2. Header Area (Doctor Information)
+        p.setFillColorRGB(0.1, 0.1, 0.1)
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(155, height - 50, f"{selected_doc['name']}")
         
         p.setFont("Helvetica", 10)
-        p.drawString(50, height - 65, "Secure Telehealth & Medical Services Platform")
-        p.line(50, height - 75, width - 50, height - 75)
-
-        # Doctor & Metadata Info
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 110, f"Attending Specialist ID: [{doctor_id.upper()}]")
-        p.drawString(50, height - 130, f"Session Channel: Secure SSL Telehealth")
-
-        # Diagnosis / Clinical Notes Section
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(50, height - 170, "Clinical Evaluation / Diagnosis Notes:")
+        p.setFillColorRGB(0.4, 0.4, 0.4)
+        p.drawString(155, height - 68, f"{selected_doc['specialty']} Specialist — Fee: ${selected_doc['fee']}")
         
+        # Serial Number & Date
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(width - 110, height - 50, "Sr.# 2026-094")
+        p.setFont("Helvetica", 9)
+        p.drawString(width - 110, height - 65, "Date: 2026-07-26")
+
+        # Top Header Divider Line
+        p.setStrokeColorRGB(0.8, 0.8, 0.8)
+        p.setLineWidth(1)
+        p.line(155, height - 85, width - 40, height - 85)
+
+        # 3. Patient Meta Fields (Name, Age, Gender, Weight)
+        p.setFont("Helvetica-Bold", 9)
+        p.setFillColorRGB(0.2, 0.2, 0.2)
+        p.drawString(155, height - 110, "Patient Name:")
+        p.line(225, height - 113, width - 40, height - 113)
+
+        p.drawString(155, height - 132, "Age: ______")
+        p.drawString(255, height - 132, "Gender: ________")
+        p.drawString(380, height - 132, "Weight: ________")
+
+        # 4. Rx Symbol & Watermark Area
+        p.setFont("Helvetica-Bold", 28)
+        p.setFillColorRGB(0.22, 0.51, 0.96)
+        p.drawString(155, height - 180, "R")
+        p.setFont("Helvetica-Bold", 18)
+        p.drawString(174, height - 177, "x")
+
+        # 5. Clinical Findings / Diagnosis & Medication Summary Section
+        p.setFont("Helvetica-Bold", 11)
+        p.setFillColorRGB(0.1, 0.1, 0.1)
+        p.drawString(155, height - 215, "Diagnosis & Clinical Summary:")
+
         p.setFont("Helvetica", 10)
-        text_object = p.beginText(50, height - 190)
-        text_object.setLeading(14)
-        
+        p.setFillColorRGB(0.2, 0.2, 0.2)
+        text_object = p.beginText(155, height - 235)
+        text_object.setLeading(15)
+
+        # Word-wrapped cleaning of diagnosis text
         for line in diagnosis.split('\n'):
-            if len(line) > 85:
-                chunks = [line[i:i+85] for i in range(0, len(line), 85)]
+            clean_line = line.replace('**', '') # Strip markdown asterisks for clean PDF output
+            if len(clean_line) > 72:
+                chunks = [clean_line[i:i+72] for i in range(0, len(clean_line), 72)]
                 for chunk in chunks:
                     text_object.textLine(chunk)
             else:
-                text_object.textLine(line)
+                text_object.textLine(clean_line)
         
         p.drawText(text_object)
 
-        # Footer Disclaimer
-        p.setFont("Helvetica-Oblique", 8)
-        p.drawString(50, 50, "Disclaimer: This document is generated by Medisync AI Copilot and requires physician validation before execution.")
+        # 6. Footer Signature & Clinic Contact Details
+        p.setFont("Helvetica", 9)
+        p.setFillColorRGB(0.4, 0.4, 0.4)
+        p.drawString(width - 180, 95, "__________________________")
+        p.setFont("Helvetica-Bold", 9)
+        p.drawString(width - 155, 80, "Doctor's Signature")
+
+        p.setStrokeColorRGB(0.8, 0.8, 0.8)
+        p.line(155, 60, width - 40, 60)
+
+        p.setFont("Helvetica", 8)
+        p.drawString(155, 45, "📍 Medisync Telehealth Tower, Dhaka")
+        p.drawString(330, 45, "📞 +880-9612-MEDISYNC")
+        p.drawString(480, 45, "✉ support@medisync.app")
 
         p.showPage()
         p.save()
